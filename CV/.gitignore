@@ -1,2 +1,5 @@
-train
-test
+epochs/*
+train/*
+test/*
+.DS_Store
+models/__pycache__
