@@ -1,5 +1,8 @@
-epochs/*
-train/*
-test/*
+*.pt
 .DS_Store
+__pycache__
+epochs/*
 models/__pycache__
+test/*
+train/training/*
+train/validation/*

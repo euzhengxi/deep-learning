@@ -1,41 +1,19 @@
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-
-from tqdm import tqdm
 import os
 import torch
-import importlib
-import torch.optim as optim
-
-from models.model_v1 import CNN
 import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
 
-#Global constant declaration
+
+from models.model_v2 import CNN 
+from preprocessing import preprocessing
+
+#Global constants declaration
 BATCH_SIZE = 64
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0005
 EPOCH_FOLDER_DIR = "epochs"
-NUM_EPOCHS = 100
-
-def preprocessing(isTraining: bool, folder: str) -> DataLoader:
-    #image augmentation to improve the robustness of the model. This is done on the fly
-    train_transforms = transforms.Compose([
-        transforms.RandomResizedCrop(128),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(15),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),
-        transforms.RandomGrayscale(p=0.1),
-        transforms.ToTensor(),
-    ])
-
-    validation_transforms = transforms.Compose([
-    transforms.ToTensor()])
-
-    #imageFolder expects the folder to be arranged in terms of the class labels
-    dataset = datasets.ImageFolder(root=folder, transform=train_transforms)
-    if (not isTraining) :
-        dataset = datasets.ImageFolder(root=folder, transform=validation_transforms)
-
-    return DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4) #load data in parallel
+EPOCH_FILEPATH = "modelv2_epoch_149.pt"
+NUM_EPOCHS = 200
 
 def create_optimizer(model, optimizer_name='RMSprop', learning_rate=LEARNING_RATE, **kwargs):
     optimizer_class = getattr(optim, optimizer_name, None)
@@ -46,33 +24,25 @@ def create_optimizer(model, optimizer_name='RMSprop', learning_rate=LEARNING_RAT
   
     optimizer = optimizer_class(model.parameters(), **kwargs)
     return optimizer
- 
-#dynamic loading of models
-def load_model_class(file_name, class_name):
-    spec = importlib.util.spec_from_file_location("module.name", file_name)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    model_class = getattr(module, class_name)
-    return model_class
 
 def training(train_dataloaders: DataLoader, eval_dataloaders: DataLoader, epoch_folder_path: str, epoch_filepath: str,  num_epochs: int):
-    #use hardware to accelerate the process if it is available
+   
+    if not torch.backends.mps.is_available() or not torch.backends.mps.is_built():
+        print("Acceleration using MPS on Apple Silicon is not available")
+    
+    #use hardware acceleration if it is available
     device = torch.device("mps" if torch.backends.mps.is_available() and torch.backends.mps.is_built() else "cpu")
 
     #model instantiation + loading in state dict if provided
     model = CNN().to(device)
     if (epoch_filepath):
-        model.load_state_dict(torch.load(epoch_filepath), map_location=device) 
+        model.load_state_dict(torch.load(epoch_filepath, weights_only=True)) 
 
     #instantiating other variables
     optimizer = create_optimizer(model, "RMSprop", LEARNING_RATE)
     loss_function = nn.CrossEntropyLoss()
 
-    if not torch.backends.mps.is_available() or not torch.backends.mps.is_built():
-        print("Acceleration using MPS on Apple Silicon is not available")
-
     for epoch in range(num_epochs):
-
         #training loop
         model.train()
         training_loss = 0.0
@@ -113,15 +83,16 @@ def training(train_dataloaders: DataLoader, eval_dataloaders: DataLoader, epoch_
                 eval_loss += loss.item()
         
         avg_eval_loss = eval_loss / num_batches
-        print(f'Epoch [{epoch+1}/{num_epochs}], Validation Loss: {avg_eval_loss * 10000:.4f}')
+        print(f'Epoch [{epoch+1}/{num_epochs}], Validation Loss: {avg_eval_loss:.4f}')
 
 
 if __name__ == "__main__":
     
-    print("Processing and loading data...")
     #data preprocessing
-    train_dataloaders = preprocessing(isTraining=True, folder="train/train")
-    eval_dataloaders = preprocessing(isTraining=False, folder="train/validation")
+    print("Processing and loading training data ...")
+    train_dataloaders = preprocessing(isTraining=True, isNewDataAdded=True , folder="train/training", batch_size=BATCH_SIZE)
+    print("Processing and loading validation data ...")
+    eval_dataloaders = preprocessing(isTraining=False, isNewDataAdded=True , folder="train/validation", batch_size=BATCH_SIZE)
 
     #actual training loop
-    training(train_dataloaders=train_dataloaders, eval_dataloaders=eval_dataloaders, epoch_folder_path=EPOCH_FOLDER_DIR, epoch_filepath="",  num_epochs=NUM_EPOCHS)
+    training(train_dataloaders=train_dataloaders, eval_dataloaders=eval_dataloaders, epoch_folder_path=EPOCH_FOLDER_DIR, epoch_filepath=EPOCH_FILEPATH,  num_epochs=NUM_EPOCHS)

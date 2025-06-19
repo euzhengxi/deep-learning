@@ -17,15 +17,15 @@ random.seed(seed)
 class CNN(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 16, 5) #in channel, out channel, kernel size
-        self.bn1 = nn.BatchNorm2d(16)
+        self.conv1 = nn.Conv2d(3, 8, 5) #in channel, out channel, kernel size
+        self.bn1 = nn.BatchNorm2d(8)
         self.pool = nn.MaxPool2d(2, 2) #d
-        self.conv2 = nn.Conv2d(16, 32, 5)
-        self.bn2 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(8, 16, 5)
+        self.bn2 = nn.BatchNorm2d(16)
 
-        self.linear1 = nn.Linear(32 * 29 * 29, 2048) #more uniform reduction
-        self.linear2 = nn.Linear(2048, 128)
-        self.linear3 = nn.Linear(128, 10)
+        self.linear1 = nn.Linear(16 * 29 * 29, 256) #more uniform reduction
+        self.linear2 = nn.Linear(256, 64)
+        self.linear3 = nn.Linear(64, 10)
 
         self.leaky_relu = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=0.2)
