@@ -12,7 +12,7 @@ from preprocessing import preprocessing
 BATCH_SIZE = 64
 LEARNING_RATE = 0.0005
 EPOCH_FOLDER_DIR = "epochs"
-EPOCH_FILEPATH = "modelv2_epoch_149.pt"
+EPOCH_FILEPATH = ""
 NUM_EPOCHS = 200
 
 def create_optimizer(model, optimizer_name='RMSprop', learning_rate=LEARNING_RATE, **kwargs):
@@ -89,9 +89,9 @@ def training(train_dataloaders: DataLoader, eval_dataloaders: DataLoader, epoch_
 if __name__ == "__main__":
     
     #data preprocessing
-    print("Processing and loading training data ...")
+    print("\n>>> Processing and loading training data ...")
     train_dataloaders = preprocessing(isTraining=True, isNewDataAdded=True , folder="train/training", batch_size=BATCH_SIZE)
-    print("Processing and loading validation data ...")
+    print(">>> Processing and loading validation data ...")
     eval_dataloaders = preprocessing(isTraining=False, isNewDataAdded=True , folder="train/validation", batch_size=BATCH_SIZE)
 
     #actual training loop

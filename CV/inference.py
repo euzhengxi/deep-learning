@@ -48,20 +48,21 @@ def inferencing(test_dataloaders: DataLoader, epoch_filepath: str):
             actual_labels = labels.tolist()
             pred = model(inputs)
     
-    prediction_classes = torch.argmax(pred, dim=1)
+    pred_probab = nn.Softmax(dim=1)(pred)
+    prediction_classes = pred_probab.argmax(1)
     correct = 0
     for i in range(len(prediction_classes)):
         print(f'actual: {pdict[actual_labels[i]]}, predicted: {pdict[prediction_classes[i].item()]}')   
         if (prediction_classes[i].item() == actual_labels[i]):
             correct += 1
     
-    print(f'{correct}/{len(prediction_classes)}')
+    print(f'Accuracy: {correct}/{len(prediction_classes)}')
     
 
 
 if __name__ == "__main__":
     
-    print("Processing and loading inferencing data...")
+    print("\n>>> Processing and loading inferencing data...")
     #data preprocessing
     test_dataloaders = preprocessing(isTraining=False, isNewDataAdded=True , folder="test", batch_size=BATCH_SIZE)
 
