@@ -138,7 +138,9 @@ def preprocessing(isTraining: bool, isNewDataAdded:bool, folder: str, batch_size
     memory = psutil.virtual_memory()
     memoryAvailable = memory.available / memory.total * 100
     if (memoryAvailable > 60 and torch.cuda.is_available()):
-        print(f'\nAvailable memory: {memoryAvailable:.2f} %. CUDA detected, consider setting pin_memory=true in dataloader in preprocessing.py to accelerate data transfer\n')
+        print(f'\nAvailable memory: {memoryAvailable:.2f} %. CUDA detected, consider setting pin_memory=true in dataloader in preprocessing.py to accelerate data transfer. \
+              In addition, add non_blocking=true in devices. \n')
+   
     #function expects the folder to be arranged in terms of the class labels
     dataset = datasets.ImageFolder(root=folder, transform=TRAIN_TRANSFORMS)
     if (not isTraining) :

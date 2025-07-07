@@ -59,7 +59,7 @@ On macOS, the DataLoader spawns new processes.
 
 - **Pinned Memory**:  
 Although **Metal (MPS)** on macOS doesn't support pinned memory, support is available for **CUDA** devices.  
-→ Pinned memory is **optional and can be enabled MANUALLY only if RAM is sufficient**.
+→ Pinned memory is **optional and can be enabled MANUALLY only if RAM is sufficient**. After pinned memory is enabled, set non_blocking=true in devices to enable asynchronous data transfer. 
 
 - **Worker Initialization**:  
 Custom `worker_init_fn` is used to prevent issues such as data duplication when using multiple DataLoaders.
