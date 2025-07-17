@@ -11,9 +11,9 @@ from preprocessing import preprocessing
 
 #Global constants declaration
 BATCH_SIZE = 32
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0001 #0.01
 EPOCH_FOLDER_DIR = "epochs"
-EPOCH_FILEPATH = "" 
+EPOCH_FILEPATH = f'best_epochs/deit_model_epoch_31.pt'
 NUM_EPOCHS = 200
 
 def create_optimizer(model, optimizer_name='RMSprop', learning_rate=LEARNING_RATE, **kwargs):
@@ -35,11 +35,19 @@ def training(train_dataloader: DataLoader, eval_dataloader: DataLoader, epoch_fo
     #use hardware acceleration if it is available
     device = torch.device("mps" if torch.backends.mps.is_available() and torch.backends.mps.is_built() else "cpu")
 
-    model = MobileNet().to(device)
+    model = DeiT().to(device)
+    if (epoch_filepath):
+        model.load_state_dict(torch.load(EPOCH_FILEPATH, weights_only=True)) 
+        
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    for param in model.model.head.parameters():
+        param.requires_grad = True
 
-    #instantiating other variables
-    optimizer = create_optimizer(model, "Adam", LEARNING_RATE)
-    loss_function = nn.CrossEntropyLoss(reduction="sum", label_smoothing=0.1)
+     #instantiating other variables
+    optimizer = create_optimizer(model, "AdamW", LEARNING_RATE)
+    loss_function = nn.CrossEntropyLoss(label_smoothing=0.1)
 
     for epoch in range(num_epochs):
         
@@ -51,8 +59,8 @@ def training(train_dataloader: DataLoader, eval_dataloader: DataLoader, epoch_fo
             inputs, labels = batch
             inputs = inputs.to(torch.float32).to(device)
             labels = labels.to(torch.float32).to(device)
-            log_probs = model(inputs)
-            loss = loss_function(log_probs, labels)
+            pred = model(inputs)
+            loss = loss_function(pred, labels)
 
             optimizer.zero_grad()
             loss.backward()
@@ -75,9 +83,9 @@ def training(train_dataloader: DataLoader, eval_dataloader: DataLoader, epoch_fo
                 inputs, labels = batch
                 inputs = inputs.to(torch.float32).to(device)
                 labels = labels.to(torch.float32).to(device)
-                log_probs = model(inputs)
-                loss = loss_function(log_probs, labels)
-
+                pred = model(inputs)
+                
+                loss = loss_function(pred, labels)
                 num_batches+=1
                 eval_loss += loss.item()
         

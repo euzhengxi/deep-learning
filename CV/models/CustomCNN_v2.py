@@ -36,9 +36,9 @@ class CNN(nn.Module):
 
         x = torch.flatten(x, 1)
         x = self.leaky_relu(self.linear1(x))
-        x = self.dropout(x)
+        #x = self.dropout(x)
         x = self.leaky_relu(self.linear2(x))
-        x = self.dropout(x)
+        #x = self.dropout(x)
         x = self.leaky_relu(self.linear3(x))
 
         return x

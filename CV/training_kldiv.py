@@ -11,10 +11,20 @@ from preprocessing import preprocessing
 
 #Global constants declaration
 BATCH_SIZE = 32
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.01
 EPOCH_FOLDER_DIR = "epochs"
-EPOCH_FILEPATH = "" 
+EPOCH_FILEPATH = "" #f'{EPOCH_FOLDER_DIR}/model_epoch_200.pt'
 NUM_EPOCHS = 200
+
+def smooth_one_hot(labels, num_classes, smoothing=0.1):
+    # 1 - smoothing gets assigned to the correct class
+    # smoothing gets spread over the rest of the classes
+    confidence = 1.0 - smoothing
+    smooth_value = smoothing / (num_classes - 1)
+
+    one_hot = torch.full((labels.size(0), num_classes), smooth_value).to(labels.device)
+    one_hot.scatter_(1, labels.unsqueeze(1), confidence)
+    return one_hot
 
 def create_optimizer(model, optimizer_name='RMSprop', learning_rate=LEARNING_RATE, **kwargs):
     optimizer_class = getattr(optim, optimizer_name, None)
@@ -22,7 +32,7 @@ def create_optimizer(model, optimizer_name='RMSprop', learning_rate=LEARNING_RAT
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
   
     kwargs['lr'] = learning_rate
-    kwargs['weight_decay'] = 1e-4
+    kwargs['weight_decay'] = 1e-5
   
     optimizer = optimizer_class(model.parameters(), **kwargs)
     return optimizer
@@ -39,7 +49,7 @@ def training(train_dataloader: DataLoader, eval_dataloader: DataLoader, epoch_fo
 
     #instantiating other variables
     optimizer = create_optimizer(model, "Adam", LEARNING_RATE)
-    loss_function = nn.CrossEntropyLoss(reduction="sum", label_smoothing=0.1)
+    loss_function = nn.KLDivLoss(reduction="batchmean")
 
     for epoch in range(num_epochs):
         
@@ -50,9 +60,11 @@ def training(train_dataloader: DataLoader, eval_dataloader: DataLoader, epoch_fo
         for batch in train_dataloader:
             inputs, labels = batch
             inputs = inputs.to(torch.float32).to(device)
-            labels = labels.to(torch.float32).to(device)
-            log_probs = model(inputs)
-            loss = loss_function(log_probs, labels)
+            labels = labels.to(torch.long).to(device)
+            smoothed_targets = smooth_one_hot(labels, num_classes=10, smoothing=0.1)
+
+            log_probs = torch.log_softmax(model(inputs), dim=1) 
+            loss = loss_function(log_probs, smoothed_targets)
 
             optimizer.zero_grad()
             loss.backward()
@@ -74,9 +86,11 @@ def training(train_dataloader: DataLoader, eval_dataloader: DataLoader, epoch_fo
             for batch in eval_dataloader:
                 inputs, labels = batch
                 inputs = inputs.to(torch.float32).to(device)
-                labels = labels.to(torch.float32).to(device)
-                log_probs = model(inputs)
-                loss = loss_function(log_probs, labels)
+                labels = labels.to(torch.long).to(device)
+
+                log_probs = torch.log_softmax(model(inputs), dim=1) 
+                smoothed_targets = smooth_one_hot(labels, num_classes=10, smoothing=0.1)
+                loss = loss_function(log_probs, smoothed_targets)
 
                 num_batches+=1
                 eval_loss += loss.item()

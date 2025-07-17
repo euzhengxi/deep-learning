@@ -25,16 +25,18 @@ Transforms are image augmentation to improve the robustness of the model. These 
 2. totensor - converts to tensor and normalises the values
 '''
 TRAIN_TRANSFORMS = v2.Compose([
-    v2.RandomResizedCrop(128), 
+    v2.Resize(256),  
+    v2.RandomResizedCrop(224, scale=(0.8, 1.0), ratio=(0.9, 1.1)), #128
     v2.RandomHorizontalFlip(),
-    v2.RandomRotation(15),
-    v2.ColorJitter(brightness=0.2, contrast=0.2),
-    v2.RandomGrayscale(p=0.1),
+    v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+    v2.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),
     v2.ToImage(), 
     v2.ToDtype(torch.float32, scale=True)
 ])
 
 STANDARD_TRANSFORMS = v2.Compose([
+    v2.Resize(256),
+    v2.CenterCrop(224), #128
     v2.ToImage(), 
     v2.ToDtype(torch.float32, scale=True)
 ])
@@ -81,7 +83,6 @@ def convert_and_resize_images(dataset_dir: str):
                 #resizing and converting into png
                 try:
                     img = Image.open(filepath).convert("RGB")
-                    img = img.resize((128, 128))
 
                     # Save new image as .png
                     new_path = filename + ".jpg"
@@ -120,8 +121,6 @@ def check_filetype_and_get_stats(dataset_dir: str):
                 width, height = get_num_pixels(original_path)
                 if extension != ".jpg":
                     raise Exception("Multiple image types detected")
-                elif width != 128 or height != 128:
-                    raise Exception("Multiple image dimensions detected")
                 
                 imageData[folder] = imageData[folder] + 1 if folder in imageData else 1
 

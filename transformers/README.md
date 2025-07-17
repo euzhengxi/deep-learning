@@ -1,0 +1,1 @@
+This README documents key implementation details, design decisions, and changes for the transformer project.
