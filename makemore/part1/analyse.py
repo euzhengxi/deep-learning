@@ -36,28 +36,60 @@ def compute_count(names):
 
 if __name__ == "__main__":
     #performance indicators
-    #smoothed out train and eval loss, noise, output lnegth probability distribution
+    #smoothed out train and eval loss, noise, output length probability distribution
     #entropy? 
 
-    pdict = {}
-    with open("6_15_200_0.1_100_64.json", "r") as file:
-        pdict = json.load(file)
-    
-    steps = pdict["steps"]
-    tlosses = pdict["training_loss"]
-    elosses = pdict["evaluation_loss"]
-    tlosses_ema, tlosses_rmse =  smooth_loss_and_compute_noise(tlosses)
-    elosses_ema, elosses_rmse =  smooth_loss_and_compute_noise(elosses)
-    plt.plot(steps, tlosses_ema, color="blue")
-    plt.plot(steps, tlosses_rmse, color="orange")
-    plt.plot(steps, elosses_ema, color="green")
-    plt.plot(steps, elosses_rmse, color="black")
+    #extracting useful information from training data
+    training_files = ["6_15_200_0.1_100_64.json", "6_15_200_0.1_100_64.json", "6_15_200_0.1_100_64.json"]
+    steps = []
+    tlosses_ema, tlosses_rmse = [], []
+    elosses_ema, elosses_rmse = [], []
+    names_distributions = []
+
+    for filename in training_files:
+        pdict = {}
+        with open(filename, "r") as file:
+            pdict = json.load(file)
+        
+        steps = pdict["steps"]
+        tlosses = pdict["training_loss"]
+        elosses = pdict["evaluation_loss"]
+        curr_tlosses_ema, curr_tlosses_rmse =  smooth_loss_and_compute_noise(tlosses)
+        tlosses_ema.append(curr_tlosses_ema)
+        tlosses_rmse.append(curr_tlosses_rmse)
+
+        curr_elosses_ema, curr_elosses_rmse =  smooth_loss_and_compute_noise(elosses)
+        elosses_ema.append(curr_elosses_ema)
+        elosses_rmse.append(curr_elosses_rmse)
+
+        nlist = pdict["generated_names"] 
+        curr_names_distribution = compute_count(nlist)
+        names_distributions.append(curr_names_distribution)
+
+    #plotting the data
+    plt.figure()
+    for tloss in tlosses_ema:
+        plt.plot(steps, tloss)
     plt.show()
 
     plt.figure()
-    nlist = pdict["generated_names"] #bar chart for count for each variation
-    names_distribution = compute_count(nlist)
-    plt.bar([i for i in range(11)], names_distribution)
+    for tloss in tlosses_rmse:
+        plt.plot(steps, tloss)
+    plt.show()
+
+    plt.figure()
+    for eloss in elosses_ema:
+        plt.plot(steps, eloss)
+    plt.show()
+
+    plt.figure()
+    for eloss in elosses_rmse:
+        plt.plot(steps, eloss)
+    plt.show()
+
+    plt.figure()
+    for distribution in names_distributions:
+        plt.plot([i for i in range(11)], distribution)
     plt.show()
 
     #plt.figure()
