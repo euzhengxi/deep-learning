@@ -3,6 +3,7 @@ import random
 import torch
 import torch.nn.functional as F
 import json
+import multiprocessing as mp
 
 #reading, transforming and preparing data
 def read_data(dataPath):
@@ -20,7 +21,7 @@ def read_data(dataPath):
 
     return train_data, eval_data, test_data
 
-def transform_data(dlist, context_length):
+def transform_data(dlist, context_length, cdict):
     inputt = []
     output = []
     for word in dlist:
@@ -34,6 +35,8 @@ def transform_data(dlist, context_length):
     return (X, Y)
 
 def create_model(char_count, embedding_dimension, context_length, hidden_layer_1):
+    g = torch.Generator().manual_seed(220284)
+
     #initialising weights: tanh(embedding @ W1 + B1) * W2 + B2, ie instantiating model 
     embedding = torch.randn((char_count, embedding_dimension), requires_grad=True, generator=g)
     W1 = torch.randn((context_length * embedding_dimension, hidden_layer_1), requires_grad=True, generator=g)
@@ -44,7 +47,7 @@ def create_model(char_count, embedding_dimension, context_length, hidden_layer_1
     return embedding, W1, B1, W2, B2
 
 #training
-def train(train_dataset, eval_dataset, model, minibatch_size, context_length, embedding_dimension, learning_rate):
+def training_loop(train_dataset, eval_dataset, model, epochs, minibatch_size, context_length, embedding_dimension, learning_rate):
     Xtr, Ytr = train_dataset
     Xeval, Yeval = eval_dataset
 
@@ -86,7 +89,8 @@ def train(train_dataset, eval_dataset, model, minibatch_size, context_length, em
 
     
 
-def generate_names(model, context_length, embedding_dimension):
+def generate_names(model, context_length, embedding_dimension, idict):
+    g = torch.Generator().manual_seed(220284)
     eps = 1e-9
     embedding, W1, B1, W2, B2 = model
     nlist = []
@@ -115,52 +119,61 @@ def generate_names(model, context_length, embedding_dimension):
         nlist.append(name)
     
     return nlist, elist
-    
+
+def train_model(context_length, embedding_dimension, hidden_layer_1, learning_rate, epochs, minibatch_size):
+    torch.set_num_threads(3)
+
+    #constants
+    char_count = 27
+    datapath = "../names.txt"
+    alphabets = ".abcdefghijklmnopqrstuvwxyz"
+    cdict = {alphabets[i]: i for i in range(len(alphabets))}
+    idict = {i: alphabets[i] for i in range(len(alphabets))}
+
+    #preparing dataset
+    train_data, eval_data, test_data = read_data(datapath)
+    train_dataset, eval_dataset, test_dataset = transform_data(train_data, context_length, cdict), transform_data(eval_data, context_length, cdict), transform_data(test_data, context_length, cdict)
+            
+    #training
+    model = create_model(char_count, embedding_dimension, context_length, hidden_layer_1)
+    steps, tlosses, elosses= training_loop(train_dataset, eval_dataset, model, epochs, minibatch_size, context_length, embedding_dimension, learning_rate)
+
+    #generation
+    nlist, elist = generate_names(model, context_length, embedding_dimension, idict)
+    pdict = {
+        "steps": steps,
+        "training_loss": tlosses,
+        "evaluation_loss": elosses,
+        "generated_names": nlist,
+        "entropy_values": elist 
+        }
+
+    with open(f"{context_length}_{embedding_dimension}_{hidden_layer_1}_{learning_rate}_{epochs}_{minibatch_size}.json", "w") as file:
+        json.dump(pdict, file)
+            
 
 
 if __name__ == "__main__":
-    random.seed(42) #will this be shared? is a good idea to bundle everything together? 
-    g = torch.Generator().manual_seed(220284)
-    char_count = 27
-
-    datapath = "../names.txt"
-    cdict = {'.': 0, 'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8, 'i': 9, 'j': 10, 'k': 11, 'l': 12, 'm': 13, 'n': 14, 
-         'o': 15, 'p': 16, 'q': 17, 'r': 18, 's': 19, 't': 20, 'u': 21, 'v': 22, 'w': 23, 'x': 24, 'y': 25, 'z': 26
-        }
-
-    idict = {0: '.', 1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h', 9: 'i', 10: 'j', 11: 'k', 12: 'l', 13: 'm', 14: 'n', 
-            15: 'o', 16: 'p', 17: 'q', 18: 'r', 19: 's', 20: 't', 21: 'u', 22: 'v', 23: 'w', 24: 'x', 25: 'y', 26: 'z'
-            }
-
-    train_data, eval_data, test_data = read_data(datapath)
+    random.seed(42) 
+    NUM_PROCESSES = 3
+    argument_tasks = []
 
     with open('hyperparameters.csv', mode='r') as file:
         reader = csv.DictReader(file)
-        
         for row in reader:
             #reading in hyperparameters
-            context_length, embedding_dimension, hidden_layer_1 = int(row['context_length']), int(row['embedding_dimension']), int(row['hidden_layer_1'])
-            learning_rate, epochs, minibatch_size = float(row['learning_rate']), int(row['epochs']), int(row['minibatch_size'])
+            context_length = int(row['context_length'])
+            embedding_dimension = int(row['embedding_dimension'])
+            hidden_layer_1 = int(row['hidden_layer_1'])
+            learning_rate = float(row['learning_rate'])
+            epochs = int(row['epochs'])
+            minibatch_size = int(row['minibatch_size'])
 
-            #preparing dataset
-            train_dataset, eval_dataset, test_dataset = transform_data(train_data, context_length), transform_data(eval_data, context_length), transform_data(test_data, context_length)
-            
-            #training
-            model = create_model(char_count, embedding_dimension, context_length, hidden_layer_1)
-            steps, tlosses, elosses= train(train_dataset, eval_dataset, model, minibatch_size, context_length, embedding_dimension, learning_rate)
-
-            #generation
-            nlist, elist = generate_names(model, context_length, embedding_dimension)
-            pdict = {
-                "steps": steps,
-                "training_loss": tlosses,
-                "evaluation_loss": elosses,
-                "generated_names": nlist,
-                "entropy_values": elist 
-            }
-
-            with open(f"{context_length}_{embedding_dimension}_{hidden_layer_1}_{learning_rate}_{epochs}_{minibatch_size}.json", "w") as file:
-                json.dump(pdict, file)
+            task_args = (context_length, embedding_dimension, hidden_layer_1, learning_rate, epochs, minibatch_size)
+            argument_tasks.append(task_args)
+    
+    with mp.Pool(processes=NUM_PROCESSES) as pool:
+        pool.starmap(train_model, argument_tasks)
 
 
     #redesign training pipeline to read from csv
