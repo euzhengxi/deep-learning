@@ -66,12 +66,21 @@ def training_loop(train_dataset, eval_dataset, model, epochs, minibatch_size, co
         train_input = embedding[Xtr[indices]] #minibatch, context_length * embedding_dimension 
         train_input = torch.reshape(train_input, (-1, context_length * embedding_dimension))
         logits = F.tanh(train_input @ W1 + B1) @ W2  + B2
-        loss = F.cross_entropy(logits, Ytr[indices]) #class indices
+        weight_sum = 0
+        for p in parameters:
+            weight_sum += 0.01*(p**2).mean()
+        loss = F.cross_entropy(logits, Ytr[indices]) + weight_sum #class indices
 
-        #backwards pass
+        #backward pass
         for p in parameters:
             p.grad = None
         loss.backward()
+
+        if i > epochs * 2 / 3:
+            learning_rate = 0.01
+        elif i > epochs / 3:
+            learning_rate = 0.05
+        
         for p in parameters:
             p.data += -learning_rate * p.grad
         
@@ -176,9 +185,7 @@ if __name__ == "__main__":
         pool.starmap(train_model, argument_tasks)
 
 
-    #redesign training pipeline to read from csv
-    #modify training pipeline to output and store the values
-    #set up multiprocessing for concurrent training sessions: 3
+   #8, 6, 100, 0.1, 200000, 32 generates the most name like names
 
 
 

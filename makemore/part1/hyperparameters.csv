@@ -1,6 +1,2 @@
 context_length,embedding_dimension,hidden_layer_1,learning_rate,epochs,minibatch_size
-6, 15, 200, 0.1, 100000, 64
-3, 15, 200, 0.1, 100000, 64
-9, 15, 200, 0.1, 100000, 64
-6, 10, 200, 0.1, 100000, 64
-6, 6, 200, 0.1, 100000, 64
+8, 6, 100, 0.1, 200000, 32

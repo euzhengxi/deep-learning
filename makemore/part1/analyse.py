@@ -1,18 +1,20 @@
 import json 
 import math
 import matplotlib.pyplot as plt
+import os
 
 def smooth_loss_and_compute_noise(values):
     #compute ema & use that value to compute RMSE for noise
-    beta = 0.9
+    samples = 25
+    beta = 0.96
 
     #compute for training loss
-    ema_values, rmse_values = [0] * 9, [0] * 9
-    ema_curr = sum(values[:10]) / 10
+    ema_values, rmse_values = [0] * (samples - 1), [0] * (samples - 1)
+    ema_curr = sum(values[:samples]) / samples
     ema_values.append(ema_curr)
-    rmse_values.append(math.sqrt((ema_values[-1] - values[10]) ** 2))
-    for i in range(10, len(values)):
-        ema_curr = beta * ema_curr + (1 - 0.1) * values[i]
+    rmse_values.append(math.sqrt((ema_values[-1] - values[samples]) ** 2))
+    for i in range(samples, len(values)):
+        ema_curr = beta * ema_curr + (1 - beta) * values[i]
         rmse_curr = math.sqrt((ema_curr - values[i]) ** 2)
         ema_values.append(ema_curr)
         rmse_values.append(rmse_curr)
@@ -39,8 +41,16 @@ if __name__ == "__main__":
     #smoothed out train and eval loss, noise, output length probability distribution
     #entropy? 
 
+    #reading training data
+    training_files = []
+    directory = '/Users/euzhengxi/dev/deep-learning/makemore/part1'
+
+    for filename in os.listdir(directory):
+        if "json" in filename:
+            file_path = os.path.join(directory, filename)
+            training_files.append(file_path)
+
     #extracting useful information from training data
-    training_files = ["3_15_200_0.1_100000_64.json", "6_6_200_0.1_100000_64.json", "6_10_200_0.1_100000_64.json", "6_15_200_0.1_100000_64.json", "9_15_200_0.1_100000_64.json"]
     steps = []
     tlosses_ema, tlosses_rmse = [], []
     elosses_ema, elosses_rmse = [], []
@@ -51,20 +61,22 @@ if __name__ == "__main__":
         with open(filename, "r") as file:
             pdict = json.load(file)
         
+        training_file = filename.split("/")[-1]
         steps = pdict["steps"]
         tlosses = pdict["training_loss"]
         elosses = pdict["evaluation_loss"]
+        
         curr_tlosses_ema, curr_tlosses_rmse =  smooth_loss_and_compute_noise(tlosses)
-        tlosses_ema.append((curr_tlosses_ema, filename))
-        tlosses_rmse.append((curr_tlosses_rmse, filename))
+        tlosses_ema.append((curr_tlosses_ema, training_file))
+        tlosses_rmse.append((curr_tlosses_rmse, training_file))
 
         curr_elosses_ema, curr_elosses_rmse =  smooth_loss_and_compute_noise(elosses)
-        elosses_ema.append((curr_elosses_ema, filename))
-        elosses_rmse.append((curr_elosses_rmse, filename))
+        elosses_ema.append((curr_elosses_ema, training_file))
+        elosses_rmse.append((curr_elosses_rmse, training_file))
 
         nlist = pdict["generated_names"] 
         curr_names_distribution = compute_count(nlist)
-        names_distributions.append((curr_names_distribution, filename))
+        names_distributions.append((curr_names_distribution, training_file))
 
     #plotting the data
     plt.figure()
@@ -101,9 +113,6 @@ if __name__ == "__main__":
     plt.title('name distribution')
     plt.legend()
     plt.show()
-
-    #plt.figure()
-    #elist = pdict["entropy_values"] #is this useful? how should i make sense of it? 
 
     
 
